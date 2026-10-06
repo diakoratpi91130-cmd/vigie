@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vigie">
+<meta name="theme-color" content="#10243A">
+<title>Vigie</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2310243A'/%3E%3Cpath d='M7 21l5-10 4 7 3-5 6 8' fill='none' stroke='%23F2A71B' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#EEF2F6;--panel:#fff;--ink:#10243A;--mute:#5B6B7C;--line:#D9E1E9;--map:#E3EAF1;--amber:#D98A00;--red:#D6403A;--green:#1F9D6B}
+@media (prefers-color-scheme:dark){:root{--bg:#0C1824;--panel:#142435;--ink:#EAF1F8;--mute:#93A5B7;--line:#223548;--map:#0F2031;--amber:#F2A71B;--red:#F0605A;--green:#34C58C}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,select{font:inherit;color:inherit}
+.app{position:relative;height:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.logo{font-weight:800;font-size:24px;letter-spacing:-.02em}
+.zone{font-size:13px;font-weight:600;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:99px}
+.mapwrap{padding:0 12px}
+#map{display:block;width:100%;height:auto;max-height:40vh;background:var(--map);border-radius:18px}
+.pulse{transform-box:fill-box;transform-origin:center;animation:p 2.2s ease-out infinite}
+@keyframes p{0%{transform:scale(.7);opacity:.85}100%{transform:scale(2.4);opacity:0}}
+.panel{flex:1;min-height:0;margin-top:12px;background:var(--panel);border-radius:22px 22px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column}
+.ph{padding:14px 16px 6px;font-weight:800;font-size:18px}
+.ph small{font-weight:500;color:var(--mute);font-size:13px;margin-left:6px}
+#list{list-style:none;margin:0;padding:0 16px 120px;overflow:auto;flex:1}
+.rep{padding:14px;margin-bottom:10px;border:1px solid var(--line);border-radius:16px;background:var(--bg)}
+.rep strong{display:block}.meta{font-size:13px;color:var(--mute)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.bar{height:3px;background:var(--line);border-radius:3px;margin:10px 0}.bar i{display:block;height:100%;border-radius:3px}
+.act{display:flex;gap:8px}
+.act button{flex:1;border:1.5px solid var(--line);background:none;border-radius:10px;padding:8px;font-weight:600;cursor:pointer}
+.empty,.note{padding:24px 0;color:var(--mute);text-align:center;font-size:13px}
+.fab{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--amber);color:#1b1200;border:0;border-radius:99px;padding:16px 28px;font-weight:800;font-size:17px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;white-space:nowrap}
+.wrap{position:absolute;inset:0;display:flex;align-items:flex-end;z-index:5}.wrap[hidden]{display:none}
+.scrim{position:absolute;inset:0;background:rgba(5,15,25,.55)}
+.sheet{position:relative;width:100%;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 12px;font-size:20px}.sheet label{font-size:13px;color:var(--mute)}
+.sheet select{display:block;width:100%;margin:4px 0 16px;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg)}
+.types{display:grid;gap:10px}
+.types button{display:flex;align-items:center;border:1.5px solid var(--line);background:none;border-radius:14px;padding:16px;font-weight:600;font-size:16px;cursor:pointer;text-align:left}
+.hint{font-size:13px;color:var(--mute);margin:12px 0 0}
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:12px;font-size:14px;z-index:8;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center}.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><div class="logo">Vigie</div><div class="zone">Val-de-Marne · test</div></header>
+  <div class="mapwrap"><svg id="map" viewBox="0 0 360 400" role="img" aria-label="Plan des lignes"></svg></div>
+  <section class="panel"><div class="ph">Signalements actifs<small id="pos"></small></div><ul id="list"></ul></section>
+  <button class="fab" id="fab">Signaler un contrôle</button>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="wrap" id="wrap" hidden><div class="scrim" id="scrim"></div>
+    <div class="sheet" role="dialog" aria-label="Signaler un contrôle"><h2>Signaler un contrôle</h2>
+      <label for="sel">Station</label><select id="sel"></select>
+      <div class="types" id="types"></div><p class="hint">Un tap sur le type publie le signalement. Il expire seul après 30 min.</p></div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const SB=supabase.createClient('https://avwrphpsbrkwlluueuto.supabase.co','sb_publishable_WsL1IGTBtMTNmWVopahEKQ_sUTys7qk');
+const FALLBACK={lat:48.7793,lon:2.4590};
+const KINDS={station:['Contrôle en station','var(--amber)'],board:['Contrôle à bord','var(--red)'],ended:['Contrôle terminé','var(--green)']};
+const ERR={too_far_from_stop:"Vous êtes à plus de 500 m de cette station.",rate_limited:"Trop de signalements cette heure-ci.",location_required:"Position introuvable : activez la localisation.",report_not_active:"Ce signalement n'est plus actif.",own_report:"C'est votre signalement.",already_voted:"Vous avez déjà voté.",line_not_at_stop:"Cette ligne ne dessert pas cette station."};
+const $=s=>document.querySelector(s),esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let stops=[],lines=[],ls=[],reports=[],pos={...FALLBACK,real:false};
+const sById=()=>Object.fromEntries(stops.map(s=>[s.id,s]));
+const dkm=(a,b,c,d)=>{const R=6371,t=x=>x*Math.PI/180,u=t(c-a),v=t(d-b),h=Math.sin(u/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(v/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+const fmt=k=>k<1?Math.max(50,Math.round(k*20)*50)+' m':k.toFixed(1).replace('.',',')+' km';
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),3200)}
+const errMsg=e=>{const m=(e&&e.message)||'';const k=Object.keys(ERR).find(x=>m.includes(x));return k?ERR[k]:"Une erreur est survenue, réessayez."};
+function locate(){return new Promise(r=>{if(!navigator.geolocation)return r(null);navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lon:p.coords.longitude,real:true}),()=>r(null),{enableHighAccuracy:true,timeout:8000,maximumAge:15000})})}
+async function ensureAuth(){const {data}=await SB.auth.getSession();if(data.session)return true;const {error}=await SB.auth.signInAnonymously();if(error){toast("Connexion impossible : activez les connexions anonymes dans Supabase.");return false}return true}
+async function loadStatic(){
+  const [a,b,c]=await Promise.all([SB.rpc('stops_with_coords'),SB.from('lines').select('id,short_name,mode,color'),SB.from('line_stops').select('line_id,stop_id,position')]);
+  stops=a.data||[];lines=b.data||[];ls=c.data||[];
+}
+async function refresh(){
+  const {data,error}=await SB.rpc('reports_nearby',{p_lat:pos.lat,p_lon:pos.lon,p_radius_m:5000});
+  if(!error)reports=data||[];renderMap();renderList();
+}
+function renderMap(){
+  if(!stops.length){$('#map').innerHTML='';return}
+  const la=stops.map(s=>s.lat),lo=stops.map(s=>s.lon),a=Math.min(...la),b=Math.max(...la),c=Math.min(...lo),d=Math.max(...lo);
+  const P=s=>[20+(s.lon-c)/(d-c||1)*320,20+(b-s.lat)/(b-a||1)*360],S=sById();let h='';
+  lines.forEach(l=>{const pts=ls.filter(x=>x.line_id===l.id).sort((x,y)=>x.position-y.position).map(x=>S[x.stop_id]).filter(Boolean).map(s=>P(s).join(','));
+    if(pts.length>1)h+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${esc(l.color||'#888')}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`});
+  stops.forEach(s=>{const [x,y]=P(s);h+=`<circle cx="${x}" cy="${y}" r="5.5" fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>`});
+  reports.forEach(r=>{const s=S[r.stop_id];if(!s)return;const [x,y]=P(s),k=KINDS[r.kind][1],w=s.name.length*5.3+16,tx=Math.min(Math.max(x-w/2,4),356-w);
+    h+=`<circle class="pulse" cx="${x}" cy="${y}" r="9" fill="${k}"/><circle cx="${x}" cy="${y}" r="8" fill="${k}" stroke="var(--panel)" stroke-width="2.5"/><rect x="${tx}" y="${y-38}" width="${w}" height="22" rx="11" fill="var(--ink)"/><text x="${tx+w/2}" y="${y-23}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--panel)">${esc(s.name)}</text>`});
+  $('#map').innerHTML=h;
+}
+const left=r=>Math.max(0,(new Date(r.expires_at)-Date.now())/1000);
+function renderList(){
+  $('#pos').textContent=pos.real?'autour de vous':'zone de démonstration';
+  $('#list').innerHTML=(reports.length?reports.map(r=>{const k=KINDS[r.kind],m=Math.floor((Date.now()-new Date(r.created_at))/60000),tot=Math.min(60,(new Date(r.expires_at)-new Date(r.created_at))/60000);
+    return `<li class="rep"><strong>${esc(r.stop_name)}</strong><span class="meta"><i class="dot" style="background:${k[1]}"></i>${k[0]} · ${m<1?"à l'instant":'il y a '+m+' min'} · ${fmt(r.distance_m/1000)}</span>
+    <div class="bar"><i style="width:${Math.min(100,left(r)/60/tot*100)}%;background:${k[1]}"></i></div>
+    <div class="act"><button data-v="1" data-id="${r.id}">Confirmer · ${r.confirmations}</button><button data-v="-1" data-id="${r.id}">Plus de contrôle</button></div></li>`}).join(''):'<li class="empty">Aucun contrôle signalé près de vous. Signalez le premier.</li>')
+    +'<li class="note">Version test : arrêts approximatifs, données de démonstration.</li>';
+}
+async function openSheet(){
+  const p=await locate();if(p){pos=p;}
+  const S=stops.map(s=>({...s,d:dkm(pos.lat,pos.lon,s.lat,s.lon)})).sort((x,y)=>x.d-y.d);
+  $('#sel').innerHTML=S.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${fmt(s.d)}</option>`).join('');
+  $('#types').innerHTML=Object.entries(KINDS).map(([k,t])=>`<button data-t="${k}"><i class="dot" style="background:${t[1]};width:14px;height:14px;margin-right:12px"></i>${t[0]}</button>`).join('');
+  if(!p)toast("Localisation indisponible : le signalement sera refusé.");
+  $('#wrap').hidden=false;
+}
+async function publish(kind){
+  if(!await ensureAuth())return;
+  const p=await locate();if(p)pos=p;
+  const {data,error}=await SB.rpc('create_report',{p_stop_id:$('#sel').value,p_kind:kind,p_lat:p?p.lat:null,p_lon:p?p.lon:null});
+  $('#wrap').hidden=true;
+  if(error)toast(errMsg(error));else toast(data.merged?'Déjà signalé : confirmation ajoutée':'Signalement publié · expire dans 30 min');
+  refresh();
+}
+document.addEventListener('click',async e=>{
+  const v=e.target.closest('[data-v]');
+  if(v){if(!await ensureAuth())return;const {error}=await SB.rpc('vote_report',{p_report_id:v.dataset.id,p_value:+v.dataset.v});toast(error?errMsg(error):'Merci, votre avis est pris en compte');refresh();return}
+  const t=e.target.closest('[data-t]');if(t)publish(t.dataset.t);
+});
+$('#fab').onclick=openSheet;$('#scrim').onclick=()=>{$('#wrap').hidden=true};
+(async()=>{
+  await loadStatic();renderMap();
+  const p=await locate();if(p)pos=p;
+  await refresh();
+  SB.channel('vigie-reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},()=>refresh()).subscribe();
+  setInterval(refresh,30000);
+})();
+</script>
+</body>
+</html>
