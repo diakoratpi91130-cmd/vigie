@@ -71,7 +71,7 @@ const dkm=(a,b,c,d)=>{const R=6371,t=x=>x*Math.PI/180,u=t(c-a),v=t(d-b),h=Math.s
 const fmt=k=>k<1?Math.max(50,Math.round(k*20)*50)+' m':k.toFixed(1).replace('.',',')+' km';
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),3200)}
 const errMsg=e=>{const m=(e&&e.message)||'';const k=Object.keys(ERR).find(x=>m.includes(x));return k?ERR[k]:"Une erreur est survenue, réessayez."};
-function locate(){return new Promise(r=>{if(!navigator.geolocation)return r(null);navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lon:p.coords.longitude,real:true}),()=>r(null),{enableHighAccuracy:true,timeout:8000,maximumAge:15000})})}
+function locate(){return new Promise(r=>{if(!navigator.geolocation)return r(null);navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lon:p.coords.longitude,real:true}),()=>r(null),{enableHighAccuracy:false,timeout:15000,maximumAge:120000})})}
 async function ensureAuth(){const {data}=await SB.auth.getSession();if(data.session)return true;const {error}=await SB.auth.signInAnonymously();if(error){toast("Connexion impossible : activez les connexions anonymes dans Supabase.");return false}return true}
 async function loadStatic(){
   const [a,b,c]=await Promise.all([SB.rpc('stops_with_coords'),SB.from('lines').select('id,short_name,mode,color'),SB.from('line_stops').select('line_id,stop_id,position')]);
@@ -111,7 +111,7 @@ async function openSheet(){
 }
 async function publish(kind){
   if(!await ensureAuth())return;
-  const p=await locate();if(p)pos=p;
+  const p=(await locate())||(pos.real?pos:null);if(p)pos=p;
   const {data,error}=await SB.rpc('create_report',{p_stop_id:$('#sel').value,p_kind:kind,p_lat:p?p.lat:null,p_lon:p?p.lon:null});
   $('#wrap').hidden=true;
   if(error)toast(errMsg(error));else toast(data.merged?'Déjà signalé : confirmation ajoutée':'Signalement publié · expire dans 30 min');
