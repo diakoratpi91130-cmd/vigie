@@ -44,11 +44,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 .types button{display:flex;align-items:center;border:1.5px solid var(--line);background:none;border-radius:14px;padding:16px;font-weight:600;font-size:16px;cursor:pointer;text-align:left}
 .hint{font-size:13px;color:var(--mute);margin:12px 0 0}
 .toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:12px;font-size:14px;z-index:8;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center}.toast.on{opacity:1}
+.chips{display:flex;gap:8px;padding:0 16px 10px;overflow-x:auto}
+.chip{border:1.5px solid var(--line);background:var(--panel);padding:6px 14px;border-radius:99px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="app">
-  <header><div class="logo">Vigie</div><div class="zone">Val-de-Marne · test</div></header>
+  <header><div class="logo">Vigie</div><div class="zone">Val-de-Marne</div></header>
+  <div class="chips" id="chips"></div>
   <div class="mapwrap"><svg id="map" viewBox="0 0 360 400" role="img" aria-label="Plan des lignes"></svg></div>
   <section class="panel"><div class="ph">Signalements actifs<small id="pos"></small></div><ul id="list"></ul></section>
   <button class="fab" id="fab">Signaler un contrôle</button>
@@ -62,6 +66,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 <script>
 const SB=supabase.createClient('https://avwrphpsbrkwlluueuto.supabase.co','sb_publishable_WsL1IGTBtMTNmWVopahEKQ_sUTys7qk');
 const FALLBACK={lat:48.7793,lon:2.4590};
+const MC={metro:'#8A63C9',rer:'#D9473F',tram:'#1F8F9B',bus:'#4A6FA5',cable:'#B58900',train:'#B58900'};
+let filter='all';
+function renderChips(){$('#chips').innerHTML=[['all','Tout'],['bus','Bus'],['tram','Tram'],['metro','Métro'],['rer','RER']].map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join('')}
 const KINDS={station:['Contrôle en station','var(--amber)'],board:['Contrôle à bord','var(--red)'],ended:['Contrôle terminé','var(--green)']};
 const ERR={too_far_from_stop:"Vous êtes à plus de 500 m de cette station.",rate_limited:"Trop de signalements cette heure-ci.",location_required:"Position introuvable : activez la localisation.",report_not_active:"Ce signalement n'est plus actif.",own_report:"C'est votre signalement.",already_voted:"Vous avez déjà voté.",line_not_at_stop:"Cette ligne ne dessert pas cette station."};
 const $=s=>document.querySelector(s),esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -74,8 +81,9 @@ const errMsg=e=>{const m=(e&&e.message)||'';const k=Object.keys(ERR).find(x=>m.i
 function locate(){return new Promise(r=>{if(!navigator.geolocation)return r(null);navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lon:p.coords.longitude,real:true}),()=>r(null),{enableHighAccuracy:false,timeout:15000,maximumAge:120000})})}
 async function ensureAuth(){const {data}=await SB.auth.getSession();if(data.session)return true;const {error}=await SB.auth.signInAnonymously();if(error){toast("Connexion impossible : activez les connexions anonymes dans Supabase.");return false}return true}
 async function loadStatic(){
-  const [a,b,c]=await Promise.all([SB.rpc('stops_with_coords'),SB.from('lines').select('id,short_name,mode,color'),SB.from('line_stops').select('line_id,stop_id,position')]);
-  stops=a.data||[];lines=b.data||[];ls=c.data||[];
+  let all=[];
+  for(let i=0;i<10;i++){const {data,error}=await SB.rpc('stops_overview').range(i*1000,i*1000+999);if(error||!data)break;all=all.concat(data);if(data.length<1000)break}
+  stops=all;lines=[];ls=[];
 }
 async function refresh(){
   const {data,error}=await SB.rpc('reports_nearby',{p_lat:pos.lat,p_lon:pos.lon,p_radius_m:5000});
@@ -87,7 +95,7 @@ function renderMap(){
   const P=s=>[20+(s.lon-c)/(d-c||1)*320,20+(b-s.lat)/(b-a||1)*360],S=sById();let h='';
   lines.forEach(l=>{const pts=ls.filter(x=>x.line_id===l.id).sort((x,y)=>x.position-y.position).map(x=>S[x.stop_id]).filter(Boolean).map(s=>P(s).join(','));
     if(pts.length>1)h+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${esc(l.color||'#888')}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`});
-  stops.forEach(s=>{const [x,y]=P(s);h+=`<circle cx="${x}" cy="${y}" r="5.5" fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>`});
+  stops.forEach(s=>{const [x,y]=P(s);if(filter==='all'||(s.modes||[]).includes(filter))h+=`<circle cx="${x}" cy="${y}" r="2.8" fill="${MC[(s.modes||[])[0]]||'#888'}"/>`});
   reports.forEach(r=>{const s=S[r.stop_id];if(!s)return;const [x,y]=P(s),k=KINDS[r.kind][1],w=s.name.length*5.3+16,tx=Math.min(Math.max(x-w/2,4),356-w);
     h+=`<circle class="pulse" cx="${x}" cy="${y}" r="9" fill="${k}"/><circle cx="${x}" cy="${y}" r="8" fill="${k}" stroke="var(--panel)" stroke-width="2.5"/><rect x="${tx}" y="${y-38}" width="${w}" height="22" rx="11" fill="var(--ink)"/><text x="${tx+w/2}" y="${y-23}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--panel)">${esc(s.name)}</text>`});
   $('#map').innerHTML=h;
@@ -99,12 +107,12 @@ function renderList(){
     return `<li class="rep"><strong>${esc(r.stop_name)}</strong><span class="meta"><i class="dot" style="background:${k[1]}"></i>${k[0]} · ${m<1?"à l'instant":'il y a '+m+' min'} · ${fmt(r.distance_m/1000)}</span>
     <div class="bar"><i style="width:${Math.min(100,left(r)/60/tot*100)}%;background:${k[1]}"></i></div>
     <div class="act"><button data-v="1" data-id="${r.id}">Confirmer · ${r.confirmations}</button><button data-v="-1" data-id="${r.id}">Plus de contrôle</button></div></li>`}).join(''):'<li class="empty">Aucun contrôle signalé près de vous. Signalez le premier.</li>')
-    +'<li class="note">Version test : arrêts approximatifs, données de démonstration.</li>';
+    +'<li class="note">Version test. Arrêts du Val-de-Marne : données ouvertes Île-de-France Mobilités.</li>';
 }
 async function openSheet(){
   const p=await locate();if(p){pos=p;}
-  const S=stops.map(s=>({...s,d:dkm(pos.lat,pos.lon,s.lat,s.lon)})).sort((x,y)=>x.d-y.d);
-  $('#sel').innerHTML=S.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${fmt(s.d)}</option>`).join('');
+  const S=stops.map(s=>({...s,d:dkm(pos.lat,pos.lon,s.lat,s.lon)})).sort((x,y)=>x.d-y.d).slice(0,40);
+  $('#sel').innerHTML=S.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${esc((s.lines||[]).slice(0,4).join(', '))} · ${fmt(s.d)}</option>`).join('');
   $('#types').innerHTML=Object.entries(KINDS).map(([k,t])=>`<button data-t="${k}"><i class="dot" style="background:${t[1]};width:14px;height:14px;margin-right:12px"></i>${t[0]}</button>`).join('');
   if(!p)toast("Localisation indisponible : le signalement sera refusé.");
   $('#wrap').hidden=false;
@@ -118,13 +126,14 @@ async function publish(kind){
   refresh();
 }
 document.addEventListener('click',async e=>{
+  const f=e.target.closest('[data-f]');if(f){filter=f.dataset.f;renderChips();renderMap();return}
   const v=e.target.closest('[data-v]');
   if(v){if(!await ensureAuth())return;const {error}=await SB.rpc('vote_report',{p_report_id:v.dataset.id,p_value:+v.dataset.v});toast(error?errMsg(error):'Merci, votre avis est pris en compte');refresh();return}
   const t=e.target.closest('[data-t]');if(t)publish(t.dataset.t);
 });
 $('#fab').onclick=openSheet;$('#scrim').onclick=()=>{$('#wrap').hidden=true};
 (async()=>{
-  await loadStatic();renderMap();
+  renderChips();await loadStatic();renderMap();
   const p=await locate();if(p)pos=p;
   await refresh();
   SB.channel('vigie-reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},()=>refresh()).subscribe();
