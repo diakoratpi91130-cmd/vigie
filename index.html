@@ -68,7 +68,7 @@ const SB=supabase.createClient('https://avwrphpsbrkwlluueuto.supabase.co','sb_pu
 const FALLBACK={lat:48.7793,lon:2.4590};
 const MC={metro:'#8A63C9',rer:'#D9473F',tram:'#1F8F9B',bus:'#4A6FA5',cable:'#B58900',train:'#B58900'};
 let filter='all';
-function renderChips(){$('#chips').innerHTML=[['all','Tout'],['bus','Bus'],['tram','Tram'],['metro','Métro'],['rer','RER']].map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join('')}
+function renderChips(){$('#chips').innerHTML=[['all','Tout'],['bus','Bus'],['tram','Tram'],['metro','Métro'],['rer','RER'],['train','Train']].map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join('')}
 const KINDS={station:['Contrôle en station','var(--amber)'],board:['Contrôle à bord','var(--red)'],ended:['Contrôle terminé','var(--green)']};
 const ERR={too_far_from_stop:"Vous êtes à plus de 500 m de cette station.",rate_limited:"Trop de signalements cette heure-ci.",location_required:"Position introuvable : activez la localisation.",report_not_active:"Ce signalement n'est plus actif.",own_report:"C'est votre signalement.",already_voted:"Vous avez déjà voté.",line_not_at_stop:"Cette ligne ne dessert pas cette station."};
 const $=s=>document.querySelector(s),esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -81,9 +81,8 @@ const errMsg=e=>{const m=(e&&e.message)||'';const k=Object.keys(ERR).find(x=>m.i
 function locate(){return new Promise(r=>{if(!navigator.geolocation)return r(null);navigator.geolocation.getCurrentPosition(p=>r({lat:p.coords.latitude,lon:p.coords.longitude,real:true}),()=>r(null),{enableHighAccuracy:false,timeout:15000,maximumAge:120000})})}
 async function ensureAuth(){const {data}=await SB.auth.getSession();if(data.session)return true;const {error}=await SB.auth.signInAnonymously();if(error){toast("Connexion impossible : activez les connexions anonymes dans Supabase.");return false}return true}
 async function loadStatic(){
-  let all=[];
-  for(let i=0;i<10;i++){const {data,error}=await SB.rpc('stops_overview').range(i*1000,i*1000+999);if(error||!data)break;all=all.concat(data);if(data.length<1000)break}
-  stops=all;lines=[];ls=[];
+  const {data}=await SB.rpc('stops_near',{p_lat:pos.lat,p_lon:pos.lon,p_radius_m:3000,p_limit:900});
+  stops=data||[];lines=[];ls=[];
 }
 async function refresh(){
   const {data,error}=await SB.rpc('reports_nearby',{p_lat:pos.lat,p_lon:pos.lon,p_radius_m:5000});
@@ -110,7 +109,7 @@ function renderList(){
     +'<li class="note">Version test. Arrêts du Val-de-Marne : données ouvertes Île-de-France Mobilités.</li>';
 }
 async function openSheet(){
-  const p=await locate();if(p){pos=p;}
+  const p=await locate();if(p){pos=p;await loadStatic();renderMap();}
   const S=stops.map(s=>({...s,d:dkm(pos.lat,pos.lon,s.lat,s.lon)})).sort((x,y)=>x.d-y.d).slice(0,40);
   $('#sel').innerHTML=S.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} · ${esc((s.lines||[]).slice(0,4).join(', '))} · ${fmt(s.d)}</option>`).join('');
   $('#types').innerHTML=Object.entries(KINDS).map(([k,t])=>`<button data-t="${k}"><i class="dot" style="background:${t[1]};width:14px;height:14px;margin-right:12px"></i>${t[0]}</button>`).join('');
@@ -133,8 +132,9 @@ document.addEventListener('click',async e=>{
 });
 $('#fab').onclick=openSheet;$('#scrim').onclick=()=>{$('#wrap').hidden=true};
 (async()=>{
-  renderChips();await loadStatic();renderMap();
+  renderChips();
   const p=await locate();if(p)pos=p;
+  await loadStatic();renderMap();
   await refresh();
   SB.channel('vigie-reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},()=>refresh()).subscribe();
   setInterval(refresh,30000);
