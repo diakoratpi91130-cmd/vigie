@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="Vigie">
 <meta name="theme-color" content="#10243A">
 <title>Vigie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2310243A'/%3E%3Cpath d='M7 21l5-10 4 7 3-5 6 8' fill='none' stroke='%23F2A71B' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#EEF2F6;--panel:#fff;--ink:#10243A;--mute:#5B6B7C;--line:#D9E1E9;--map:#E3EAF1;--amber:#D98A00;--red:#D6403A;--green:#1F9D6B}
@@ -47,15 +50,27 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 .chips{display:flex;gap:8px;padding:0 16px 10px;overflow-x:auto}
 .chip{border:1.5px solid var(--line);background:var(--panel);padding:6px 14px;border-radius:99px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
 .chip[aria-pressed=true]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+body,button,select{font-family:Figtree,system-ui,-apple-system,Segoe UI,sans-serif}
+.logo,.ph,.sheet h2,.fab,.rep strong,.empty{font-family:'Bricolage Grotesque',Figtree,system-ui,sans-serif}
+.brand{display:flex;align-items:center;gap:10px}
+.tag{font-size:12px;color:var(--mute);margin-top:-2px}
+.zone{display:flex;align-items:center;gap:7px;box-shadow:0 1px 2px rgba(16,36,58,.08)}
+.live{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 25%,transparent)}
+#map{background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:18px 18px;box-shadow:inset 0 0 0 1px var(--line)}
+.panel{box-shadow:0 -8px 24px rgba(16,36,58,.08)}
+.rep{border-left:4px solid var(--k,var(--line));background:var(--panel);box-shadow:0 1px 3px rgba(16,36,58,.08)}
+.rep strong{font-size:16px}
+.act button:active,.chip:active,.types button:active{transform:scale(.98)}
+.fab{display:flex;align-items:center;gap:10px}
 </style>
 </head>
 <body>
 <div class="app">
-  <header><div class="logo">Vigie</div><div class="zone">Val-de-Marne</div></header>
+  <header><div class="brand"><svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#10243A"/><path d="M7 21l5-10 4 7 3-5 6 8" fill="none" stroke="#F2A71B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="logo">Vigie</div><div class="tag">Alertes de contrôle en direct</div></div></div><div class="zone"><i class="live"></i>Île-de-France</div></header>
   <div class="chips" id="chips"></div>
   <div class="mapwrap"><svg id="map" viewBox="0 0 360 400" role="img" aria-label="Plan des lignes"></svg></div>
   <section class="panel"><div class="ph">Signalements actifs<small id="pos"></small></div><ul id="list"></ul></section>
-  <button class="fab" id="fab">Signaler un contrôle</button>
+  <button class="fab" id="fab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Signaler un contrôle</button>
   <div class="toast" id="toast" role="status"></div>
   <div class="wrap" id="wrap" hidden><div class="scrim" id="scrim"></div>
     <div class="sheet" role="dialog" aria-label="Signaler un contrôle"><h2>Signaler un contrôle</h2>
@@ -97,13 +112,15 @@ function renderMap(){
   stops.forEach(s=>{const [x,y]=P(s);if(filter==='all'||(s.modes||[]).includes(filter))h+=`<circle cx="${x}" cy="${y}" r="2.8" fill="${MC[(s.modes||[])[0]]||'#888'}"/>`});
   reports.forEach(r=>{const s=S[r.stop_id];if(!s)return;const [x,y]=P(s),k=KINDS[r.kind][1],w=s.name.length*5.3+16,tx=Math.min(Math.max(x-w/2,4),356-w);
     h+=`<circle class="pulse" cx="${x}" cy="${y}" r="9" fill="${k}"/><circle cx="${x}" cy="${y}" r="8" fill="${k}" stroke="var(--panel)" stroke-width="2.5"/><rect x="${tx}" y="${y-38}" width="${w}" height="22" rx="11" fill="var(--ink)"/><text x="${tx+w/2}" y="${y-23}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--panel)">${esc(s.name)}</text>`});
+  if(pos.real){const u=P({lat:pos.lat,lon:pos.lon}),rp=Math.max(10,0.01366*320/((d-c)||1));
+    h+=`<g pointer-events="none"><circle cx="${u[0]}" cy="${u[1]}" r="${rp}" fill="#2F6FED" fill-opacity=".07" stroke="#2F6FED" stroke-opacity=".5" stroke-dasharray="4 4"/><circle cx="${u[0]}" cy="${u[1]}" r="10" fill="#2F6FED" fill-opacity=".25"/><circle cx="${u[0]}" cy="${u[1]}" r="5" fill="#2F6FED" stroke="#fff" stroke-width="2.5"/></g>`}
   $('#map').innerHTML=h;
 }
 const left=r=>Math.max(0,(new Date(r.expires_at)-Date.now())/1000);
 function renderList(){
   $('#pos').textContent=pos.real?'autour de vous':'zone de démonstration';
   $('#list').innerHTML=(reports.length?reports.map(r=>{const k=KINDS[r.kind],m=Math.floor((Date.now()-new Date(r.created_at))/60000),tot=Math.min(60,(new Date(r.expires_at)-new Date(r.created_at))/60000);
-    return `<li class="rep"><strong>${esc(r.stop_name)}</strong><span class="meta"><i class="dot" style="background:${k[1]}"></i>${k[0]} · ${m<1?"à l'instant":'il y a '+m+' min'} · ${fmt(r.distance_m/1000)}</span>
+    return `<li class="rep" style="--k:${k[1]}"><strong>${esc(r.stop_name)}</strong><span class="meta"><i class="dot" style="background:${k[1]}"></i>${k[0]} · ${m<1?"à l'instant":'il y a '+m+' min'} · ${fmt(r.distance_m/1000)}</span>
     <div class="bar"><i style="width:${Math.min(100,left(r)/60/tot*100)}%;background:${k[1]}"></i></div>
     <div class="act"><button data-v="1" data-id="${r.id}">Confirmer · ${r.confirmations}</button><button data-v="-1" data-id="${r.id}">Plus de contrôle</button></div></li>`}).join(''):'<li class="empty">Aucun contrôle signalé près de vous. Signalez le premier.</li>')
     +'<li class="note">Version test. Arrêts du Val-de-Marne : données ouvertes Île-de-France Mobilités.</li>';
